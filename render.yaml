@@ -1,0 +1,34 @@
+# Configuración de Render para el servidor Python + MongoDB Atlas
+# Documento oficial: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: manillas-co-api
+    runtime: python
+    plan: free
+    region: oregon          # elij el mas cercano a Colombia si aparece "montreal"
+
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app --bind 0.0.0.0:$PORT --workers 1 --timeout 60
+
+    healthCheckPath: /api/ping
+
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: DB_NAME
+        value: manillas_co
+      - key: COLLECTION
+        value: productos
+      - key: DEBUG
+        value: "0"
+      # Estas dos las escribes tu en Render (NO se guardan aqui):
+      #   MONGO_URI  -> tu cadena mongodb+srv://...
+      #   ADMIN_KEY -> la llave del panel
+      #   CORS_ORIGINS -> el dominio de Netlify, separado por comas
+      - key: MONGO_URI
+        sync: false
+      - key: ADMIN_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false

@@ -1,0 +1,13 @@
+# Credenciales - NUNCA subir
+.env
+
+# Entorno virtual de Python
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Sistema
+Thumbs.db
+.DS_Store

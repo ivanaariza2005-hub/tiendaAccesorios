@@ -1,0 +1,50 @@
+# Configuración de Netlify para la tienda Manillas & Co.
+# Netlify solo publica los archivos de la carpeta "public/".
+# El .env y server.py se quedan fuera a propósito (ahi va la contraseña).
+
+[build]
+  publish = "public"
+  command = ""
+
+# Evita que Netlify intente instalar cosas de Python
+[build.environment]
+  NODE_VERSION = "20"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Cachea las imagenes para que la tienda cargue rapido
+[[headers]]
+  for = "/img/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+# No cachees el HTML ni los JS: si cambias algo se refleja al recargar
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/admin.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200
+
+[[redirects]]
+  from = "/productos"
+  to = "/index.html"
+  status = 200

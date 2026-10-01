@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Manillas & Co. — Administrador</title>
+
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/admin.css">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="admin-body">
+
+  <!-- ======= Pantalla de acceso ======= -->
+  <div class="admin-login" id="vista-login" hidden>
+    <form class="admin-login__card" id="form-login">
+      <div class="admin-login__logo">Manillas & Co.</div>
+      <p class="admin-login__texto">Escribe la llave de administrador para gestionar el catálogo.</p>
+      <label class="campo">
+        <span>Llave</span>
+        <input type="password" id="login-llave" autocomplete="current-password" required>
+      </label>
+      <button type="submit" class="btn btn--primario">Entrar</button>
+      <p class="admin-login__error" id="login-error" role="alert"></p>
+    </form>
+  </div>
+
+  <!-- ======= Panel ======= -->
+  <div class="admin-panel" id="vista-panel" hidden>
+
+    <header class="admin-cab">
+      <div class="admin-cab__inner">
+        <div>
+          <strong>Administrador del catálogo</strong>
+          <span class="admin-cab__sub" id="estado-api"></span>
+        </div>
+        <nav class="admin-cab__nav">
+          <a href="index.html" target="_blank" rel="noopener noreferrer">Ver tienda ↗</a>
+          <button type="button" id="btn-salir" class="btn btn--texto">Salir</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="admin-main">
+
+      <div id="aviso-api" class="aviso aviso--info" hidden></div>
+      <div id="aviso-ok" class="aviso aviso--ok" hidden></div>
+      <div id="aviso-error" class="aviso aviso--error" hidden></div>
+
+      <section class="admin-seccion">
+        <div class="admin-seccion__tit">
+          <h2>Productos <span class="admin-contador" id="contador"></span></h2>
+          <button type="button" class="btn btn--primario" id="btn-nuevo">+ Agregar producto</button>
+        </div>
+        <p class="admin-seccion__sub" id="sub-seccion"></p>
+
+        <div id="lista" class="admin-lista"></div>
+      </section>
+
+      <!-- Formulaio: agregar / editar -->
+      <div class="admin-form-wrap" id="form-wrap" hidden>
+        <form class="admin-form" id="form-producto">
+          <h3 id="form-titulo">Agregar producto</h3>
+
+          <div class="admin-form__grid">
+            <label class="campo">
+              <span>Referencia (id)</span>
+              <input type="text" id="f-id" placeholder="pulsera-estrella" pattern="[a-z0-9-]+" required>
+              <small>Solo minúsculas, números y guiones. No se puede cambiar después.</small>
+            </label>
+
+            <label class="campo">
+              <span>Nombre</span>
+              <input type="text" id="f-nombre" placeholder="Colgante luna" required>
+            </label>
+
+            <label class="campo">
+              <span>Categoría</span>
+              <select id="f-categoria" required></select>
+            </label>
+
+            <label class="campo">
+              <span>Material</span>
+              <select id="f-material" required></select>
+            </label>
+
+            <label class="campo">
+              <span>Etiqueta (opcional)</span>
+              <input type="text" id="f-etiqueta" placeholder="Nuevo / Popular" maxlength="16">
+            </label>
+
+            <label class="campo campo--ancho">
+              <span>Imagen</span>
+              <select id="f-imagen-sel"></select>
+              <input type="text" id="f-imagen" placeholder="img/nuevo.jpeg  o  https://..." required>
+              <small>Elige una imagen ya subida o escribe una ruta/URL. La foto debe existir en el sitio.</small>
+            </label>
+
+            <label class="campo campo--ancho">
+              <span>Descripción</span>
+              <textarea id="f-descripcion" rows="3" placeholder="Describe la pieza (material, estilo, ocasión)"></textarea>
+            </label>
+          </div>
+
+          <div class="admin-form__acciones">
+            <button type="button" class="btn btn--texto" id="btn-cancelar">Cancelar</button>
+            <button type="submit" class="btn btn--primario" id="btn-guardar">Guardar</button>
+          </div>
+        </form>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="js/catalogo-base.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
