@@ -99,6 +99,16 @@ def admin_requerido(f):
     return wrapper
 
 
+def error_resp(mensaje_publico, excepcion=None):
+    """Registra el detalle tecnico en el servidor y devuelve un mensaje generico.
+
+    Los errores de PyMongo incluyen nombres de servidores del cluster y datos
+    de la topologia. Eso no debe llegar al navegador de un visitante.
+    """
+    app.logger.error("%s | %s", mensaje_publico, excepcion)
+    return jsonify({"ok": False, "error": mensaje_publico}), 500
+
+
 # Campos admitidos en cada producto (deben coincidir con js/catalogo-base.js)
 CAMPOS_PRODUCTO     = ["id", "nombre", "categoria", "material", "etiqueta", "imagen", "descripcion"]
 CATEGORIAS_VALIDAS  = {"manillas", "cadenas", "aretes", "topos", "juegos"}
@@ -249,9 +259,9 @@ def ping():
     except ValueError as ve:
         return jsonify({"ok": False, "error": str(ve)}), 400
     except PyMongoError as pe:
-        return jsonify({"ok": False, "error": f"Error conectando a MongoDB Atlas: {str(pe)}"}), 500
+        return error_resp("No se pudo acceder a la base de datos.", pe)
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return error_resp("Error interno del servidor.", e)
 
 
 @app.route("/api/productos", methods=["GET"])
@@ -264,9 +274,9 @@ def get_productos():
     except ValueError as ve:
         return jsonify({"ok": False, "error": str(ve)}), 400
     except PyMongoError as pe:
-        return jsonify({"ok": False, "error": f"Error de MongoDB: {str(pe)}"}), 500
+        return error_resp("No se pudo acceder a la base de datos.", pe)
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return error_resp("Error interno del servidor.", e)
 
 
 @app.route("/api/productos", methods=["POST"])
@@ -301,9 +311,9 @@ def post_producto():
     except ValueError as ve:
         return jsonify({"ok": False, "error": str(ve)}), 400
     except PyMongoError as pe:
-        return jsonify({"ok": False, "error": f"Error de MongoDB: {str(pe)}"}), 500
+        return error_resp("No se pudo acceder a la base de datos.", pe)
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return error_resp("Error interno del servidor.", e)
 
 
 @app.route("/api/productos/<string:pid>", methods=["PUT"])
@@ -331,9 +341,9 @@ def put_producto(pid):
     except ValueError as ve:
         return jsonify({"ok": False, "error": str(ve)}), 400
     except PyMongoError as pe:
-        return jsonify({"ok": False, "error": f"Error de MongoDB: {str(pe)}"}), 500
+        return error_resp("No se pudo acceder a la base de datos.", pe)
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return error_resp("Error interno del servidor.", e)
 
 
 @app.route("/api/productos/<string:pid>", methods=["DELETE"])
@@ -350,9 +360,9 @@ def delete_producto(pid):
     except ValueError as ve:
         return jsonify({"ok": False, "error": str(ve)}), 400
     except PyMongoError as pe:
-        return jsonify({"ok": False, "error": f"Error de MongoDB: {str(pe)}"}), 500
+        return error_resp("No se pudo acceder a la base de datos.", pe)
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return error_resp("Error interno del servidor.", e)
 
 
 @app.route("/api/productos/sembrar", methods=["POST"])
@@ -376,9 +386,9 @@ def sembrar():
     except ValueError as ve:
         return jsonify({"ok": False, "error": str(ve)}), 400
     except PyMongoError as pe:
-        return jsonify({"ok": False, "error": f"Error de MongoDB: {str(pe)}"}), 500
+        return error_resp("No se pudo acceder a la base de datos.", pe)
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return error_resp("Error interno del servidor.", e)
 
 
 # ============================================================

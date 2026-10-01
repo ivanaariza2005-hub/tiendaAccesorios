@@ -15,7 +15,7 @@ window.MANILLAS_CO = (function () {
         Ejemplo: https://manillas-co.onrender.com
         NO pongas "/api" al final: la ruta se añade sola.
      ========================================================= */
-  var URL_RENDER = '';
+  var URL_RENDER = 'https://tiendaaccesorios.onrender.com';
 
   /* ---------------- 1. Configuración ---------------- */
 
