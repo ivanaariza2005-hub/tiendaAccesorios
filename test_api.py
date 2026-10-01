@@ -1,54 +1,75 @@
 """
-Manillas & Co. — Test de conexion y de la API
+Manillas & Co. — Prueba de la API de productos
 ================================================
-Comprueba que server.py + MongoDB Atlas funcionan. Necesita el servidor
-corriendo en otra terminal (python server.py).
+Comprueba que server.py funciona: validacion de datos, llave de
+administrador, altas/ediciones/bajas y que los archivos internos
+(.env, server.py) no se puedan descargar desde la web.
+
+Usa una base de datos en memoria (mongomock), asi que NO necesita
+Atlas ni tener el servidor encendido: puedes ejecutarlo cuando quieras.
 
 Uso:  .venv\\Scripts\\python.exe test_api.py
 """
 
 import json
-import urllib.error
-import urllib.request
+import sys
 
-BASE = "http://localhost:5000"
-KEY = {"X-Admin-Key": "aleaccesorios", "Content-Type": "application/json"}
+import mongomock
+import mongomock.gridfs
 
-ok = fail = 0
+mongomock.gridfs.enable_gridfs_integration()
+from gridfs import GridFS
 
+import server
 
-def pedir(metodo, ruta, cuerpo=None, con_llave=False):
-    datos = json.dumps(cuerpo).encode() if cuerpo is not None else None
-    req = urllib.request.Request(
-        BASE + ruta, data=datos, method=metodo,
-        headers=KEY if con_llave else {"Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=15) as r:
-            return r.status, json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        return e.code, json.loads(e.read())
+ok = fallidas = 0
 
 
 def check(nombre, condicion, detalle=""):
-    global ok, fail
+    global ok, fallidas
     if condicion:
         ok += 1
-        print(f"  [OK]   {nombre}")
+        print("  [OK]    %s" % nombre)
     else:
-        fail += 1
-        print(f"  [FALLA] {nombre} -> {detalle}")
+        fallidas += 1
+        print("  [FALLA] %s  ->  %s" % (nombre, detalle))
 
 
-print("\n=== Servidor y MongoDB ===")
-s, d = pedir("GET", "/api/ping")
-check("ping responde ok", s == 200 and d.get("ok") is True, d)
+# --- Base de datos en memoria, en lugar de Atlas ---
+_memoria = mongomock.MongoClient()
+server.client = _memoria
+server.db = _memoria["manillas_co_test"]
+server.col = server.db[server.COLLECTION]
+server.fs = GridFS(server.db)
+server.asegurar_indices(server.col)
 
-print("\n=== Catalogo (lectura publica, sin llave) ===")
-s, d = pedir("GET", "/api/productos")
-productos = d.get("productos", [])
-check("GET /api/productos es publico", s == 200, d)
-check("hay 12 productos sembrados", len(productos) == 12, f"hay {len(productos)}")
+app = server.app
+app.config["TESTING"] = True
+c = app.test_client()
+
+HEAD = {"X-Admin-Key": server.ADMIN_KEY}
+
+
+def pedir(metodo, ruta, cuerpo=None, con_llave=False):
+    """Atajo equivalente al fetch del navegador."""
+    kwargs = {"headers": HEAD} if con_llave else {}
+    if cuerpo is not None:
+        return c.open(ruta, method=metodo, json=cuerpo, **kwargs)
+    return c.open(ruta, method=metodo, **kwargs)
+
+
+print("\n=== Servidor ===")
+r = c.get("/api/ping")
+check("ping responde ok", r.status_code == 200 and r.get_json().get("ok") is True, r.data[:120])
+
+print("\n=== Sembrar el catalogo inicial ===")
+r = pedir("POST", "/api/productos/sembrar", con_llave=True)
+check("sembrar catalogo -> 200", r.status_code == 200, "%s %s" % (r.status_code, r.data[:120]))
+
+r = c.get("/api/productos")
+productos = r.get_json()["productos"]
+check("GET /api/productos es publico (sin llave)", r.status_code == 200, r.status_code)
+check("hay 12 productos", len(productos) == 12, "hay %d" % len(productos))
 
 campos = {"id", "nombre", "categoria", "material", "etiqueta", "imagen", "descripcion"}
 check("los documentos no traen _id", all("_id" not in p for p in productos))
@@ -56,16 +77,19 @@ check("no hay campos extra", all(set(p) <= campos for p in productos),
       set().union(*[set(p) for p in productos]) - campos)
 check("categorias validas",
       all(p["categoria"] in {"manillas", "cadenas", "aretes", "topos", "juegos"} for p in productos))
+check("materiales validos",
+      all(p["material"] in {"oro-laminado", "rodio", "hilo-rojo", "otro"} for p in productos))
 check("referencias unicas", len({p["id"] for p in productos}) == len(productos))
+check("todos tienen nombre e imagen", all(p["nombre"] and p["imagen"] for p in productos))
 
 print("\n=== Escritura sin llave (debe rechazar) ===")
 for metodo, ruta in [("POST", "/api/productos"),
                      ("PUT", "/api/productos/manilla-roja"),
                      ("DELETE", "/api/productos/manilla-roja"),
                      ("POST", "/api/productos/sembrar")]:
-    s, d = pedir(metodo, ruta, {"id": "x", "nombre": "x", "categoria": "topos",
-                                "material": "rodio", "imagen": "x.jpeg"})
-    check(f"{metodo} {ruta} sin llave -> 401", s == 401, f"{s} {d}")
+    r = pedir(metodo, ruta, {"id": "x", "nombre": "x", "categoria": "topos",
+                             "material": "rodio", "imagen": "x.jpeg"})
+    check("%s %s sin llave -> 401" % (metodo, ruta), r.status_code == 401, r.status_code)
 
 print("\n=== Validacion de datos ===")
 casos = [
@@ -77,58 +101,67 @@ casos = [
                             "material": "rodio", "imagen": "x.jpeg"}),
     ("sin imagen",         {"id": "tmp4", "nombre": "X", "categoria": "topos",
                             "material": "rodio", "imagen": ""}),
+    ("id con espacios",    {"id": "con espacio", "nombre": "X", "categoria": "topos",
+                            "material": "rodio", "imagen": "x.jpeg"}),
+    ("nombre vacio",       {"id": "tmp5", "nombre": "   ", "categoria": "topos",
+                            "material": "rodio", "imagen": "x.jpeg"}),
 ]
 for nombre, cuerpo in casos:
-    s, d = pedir("POST", "/api/productos", cuerpo, con_llave=True)
-    check(f"rechaza {nombre} -> 400", s == 400, f"{s} {d}")
+    r = pedir("POST", "/api/productos", cuerpo, con_llave=True)
+    check("rechaza %s -> 400" % nombre, r.status_code == 400,
+          "%s %s" % (r.status_code, r.data[:100]))
+
+# Un id repetido es un conflicto (409), no un dato invalido (400)
+r = pedir("POST", "/api/productos",
+          {"id": "manilla-roja", "nombre": "X", "categoria": "topos",
+           "material": "rodio", "imagen": "x.jpeg"}, con_llave=True)
+check("rechaza id duplicado -> 409", r.status_code == 409, r.status_code)
 
 print("\n=== Alta / edicion / baja ===")
 nuevo = {"id": "producto-de-prueba", "nombre": "Producto de prueba",
          "categoria": "aretes", "material": "oro-laminado",
          "etiqueta": "", "imagen": "img/aretesCorazon.jpeg", "descripcion": "Temporal"}
 
-s, d = pedir("DELETE", "/api/productos/producto-de-prueba", con_llave=True)  # limpia por si acaso
-s, d = pedir("POST", "/api/productos", nuevo, con_llave=True)
-check("crea producto -> 200", s == 200, f"{s} {d}")
+pedir("DELETE", "/api/productos/producto-de-prueba", con_llave=True)   # limpia por si acaso
+r = pedir("POST", "/api/productos", nuevo, con_llave=True)
+check("crea producto -> 200", r.status_code == 200, "%s %s" % (r.status_code, r.data[:120]))
 
-s, d = pedir("POST", "/api/productos", nuevo, con_llave=True)
-check("rechaza id duplicado -> 409", s == 409, f"{s} {d}")
+r = pedir("POST", "/api/productos", nuevo, con_llave=True)
+check("rechaza id duplicado -> 409", r.status_code == 409, r.status_code)
 
 nuevo["campo_inventado"] = "no deberia guardarse"
 nuevo["nombre"] = "Producto editado"
-s, d = pedir("PUT", "/api/productos/producto-de-prueba", nuevo, con_llave=True)
-check("edita producto -> 200", s == 200, f"{s} {d}")
+r = pedir("PUT", "/api/productos/producto-de-prueba", nuevo, con_llave=True)
+check("edita producto -> 200", r.status_code == 200, "%s %s" % (r.status_code, r.data[:120]))
 
-s, d = pedir("GET", "/api/productos")
-guardado = [p for p in d["productos"] if p["id"] == "producto-de-prueba"][0]
+r = c.get("/api/productos")
+guardado = [p for p in r.get_json()["productos"] if p["id"] == "producto-de-prueba"][0]
 check("el nombre editado se guardo", guardado["nombre"] == "Producto editado", guardado)
 check("los campos extra se descartan", "campo_inventado" not in guardado, guardado)
 
-s, d = pedir("DELETE", "/api/productos/producto-de-prueba", con_llave=True)
-check("elimina producto -> 200", s == 200, f"{s} {d}")
+r = pedir("DELETE", "/api/productos/producto-de-prueba", con_llave=True)
+check("elimina producto -> 200", r.status_code == 200, r.status_code)
 
-s, d = pedir("DELETE", "/api/productos/producto-de-prueba", con_llave=True)
-check("eliminar dos veces -> 404", s == 404, f"{s} {d}")
+r = pedir("DELETE", "/api/productos/producto-de-prueba", con_llave=True)
+check("eliminar dos veces -> 404", r.status_code == 404, r.status_code)
 
-s, d = pedir("POST", "/api/productos/sembrar", con_llave=True)
-check("sembrar con datos existentes -> 409", s == 409, f"{s} {d}")
+r = pedir("PUT", "/api/productos/no-existe", nuevo, con_llave=True)
+check("editar uno que no existe -> 404", r.status_code == 404, r.status_code)
+
+r = pedir("POST", "/api/productos/sembrar", con_llave=True)
+check("sembrar con datos existentes -> 409", r.status_code == 409, r.status_code)
 
 print("\n=== Archivos internos NO deben servirse ===")
-for ruta in ["/.env", "/server.py", "/requirements.txt", "/GUIA-MONGODB.md", "/../.env"]:
-    try:
-        req = urllib.request.Request(BASE + ruta)
-        with urllib.request.urlopen(req, timeout=10) as r:
-            check(f"{ruta} bloqueado", False, f"status {r.status}")
-    except urllib.error.HTTPError as e:
-        check(f"{ruta} bloqueado", e.code == 404, f"status {e.code}")
+for ruta in ["/.env", "/server.py", "/requirements.txt", "/GUIA-MONGODB.md",
+             "/test_api.py", "/../.env", "/.git/config"]:
+    r = c.get(ruta)
+    check("%s bloqueado -> 404" % ruta, r.status_code == 404, r.status_code)
 
 print("\n=== Archivos publicables SI deben servirse ===")
-for ruta in ["/", "/admin.html", "/css/styles.css", "/js/admin.js", "/img/manillaRoja.jpeg"]:
-    try:
-        with urllib.request.urlopen(BASE + ruta, timeout=10) as r:
-            check(f"{ruta} servido", r.status == 200, f"status {r.status}")
-    except urllib.error.HTTPError as e:
-        check(f"{ruta} servido", False, f"status {e.code}")
+for ruta in ["/", "/admin.html", "/css/styles.css", "/js/admin.js",
+             "/js/catalogo-base.js", "/img/manillaRoja.jpeg"]:
+    r = c.get(ruta)
+    check("%s servido -> 200" % ruta, r.status_code == 200, r.status_code)
 
-print(f"\n{'=' * 45}\n  {ok} correctas, {fail} fallidas\n{'=' * 45}\n")
-raise SystemExit(1 if fail else 0)
+print("\n%s\n  %d correctas, %d fallidas\n%s" % ("=" * 46, ok, fallidas, "=" * 46))
+sys.exit(1 if fallidas else 0)

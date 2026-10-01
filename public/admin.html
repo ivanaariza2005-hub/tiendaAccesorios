@@ -96,9 +96,38 @@
 
             <label class="campo campo--ancho">
               <span>Imagen</span>
+
+              <!-- Subir foto desde el telefono -->
+              <div class="foto-subida">
+                <div class="foto-subida__botones">
+                  <button type="button" class="btn btn--primario btn--peq" id="btn-camara">📷 Tomar foto</button>
+                  <button type="button" class="btn btn--secundario btn--peq" id="btn-galeria">🖼️ Elegir de la galería</button>
+                </div>
+                <!-- capture="environment" abre la cámara trasera del móvil directamente -->
+                <input type="file" id="f-foto-camara" accept="image/*" capture="environment" hidden>
+                <input type="file" id="f-foto-galeria" accept="image/*" hidden>
+                <progress id="foto-progreso" max="100" value="0" hidden></progress>
+                <p class="foto-subida__estado" id="foto-estado"></p>
+              </div>
+
+              <!-- Vista previa -->
+              <div class="foto-vista" id="foto-vista" hidden>
+                <img id="foto-preview" src="" alt="Vista previa de la foto">
+                <button type="button" class="btn btn--peligro btn--peq" id="btn-quitar-foto">Quitar foto</button>
+              </div>
+
               <select id="f-imagen-sel"></select>
               <input type="text" id="f-imagen" placeholder="img/nuevo.jpeg  o  https://..." required>
-              <small>Elige una imagen ya subida o escribe una ruta/URL. La foto debe existir en el sitio.</small>
+              <small>
+                Sube la foto con el botón de arriba (se guarda sola en la base de datos),
+                o elige una imagen ya subida o escribe una ruta/URL.
+              </small>
+
+              <!-- Galería con las fotos que ya están guardadas -->
+              <details class="foto-galeria" id="foto-galeria-wrap" hidden>
+                <summary>Ver fotos ya guardadas (<span id="foto-galeria-num">0</span>)</summary>
+                <div class="foto-galeria__grid" id="foto-galeria"></div>
+              </details>
             </label>
 
             <label class="campo campo--ancho">

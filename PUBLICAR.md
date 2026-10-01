@@ -162,9 +162,33 @@ versión en caché):
    Debe decir *· conectado a MongoDB Atlas* y listar los productos.
 3. **Edita un producto** (cambia un nombre) → *Guardar*.
 4. **Vuelve a la tienda y recarga.** El cambio debe verse.
+5. **Prueba una foto:** *+ Agregar producto* → 📷 **Tomar foto** → *Guardar*.
+   Debe salir *"✓ Foto subida (... KB, 1400x…)"* y la foto se ve en la tienda.
 
 Si la tienda dice *"El catálogo todavía no está conectado"*, casi siempre es
 que `URL_RENDER` quedó vacío o mal escrito.
+
+### 📸 Subir fotos desde el celular
+
+En el panel, el campo **Imagen** tiene dos botones:
+
+| Botón | Qué hace |
+|---|---|
+| 📷 **Tomar foto** | Abre la cámara del celular y sube la foto al instante |
+| 🖼️ **Elegir de la galería** | Elige una foto que ya tengas guardada |
+
+Detalles que conviene saber:
+
+- **La foto se guarda sola** en Atlas. No tienes que subirla a ningún otro
+  sitio ni escribir ninguna ruta.
+- **Se recorta y se comprime** al subirla (ancho máximo 1400 px). Una foto de
+  6 MB del móvil acaba guardada en unos 200 KB, y la tienda carga mucho más rápido.
+- **Las fotos en vertical se enderezan** solas, igual que las HEIC del iPhone.
+- Abajo hay un desplegable **"Ver fotos ya guardadas"**: tócalo para reutilizar
+  una foto que ya habías subido, sin volver a tomarla.
+- Para **quitar** una foto que ya no usas: bórrala con `DELETE /api/imagenes/<id>`
+  (o quítasela antes al producto). El servidor **no deja** borrar una foto que
+  un producto esté usando: te dirá cuál.
 
 ---
 
@@ -208,6 +232,11 @@ borrando productos), pero si te preocupa:
 | Render da error al desplegar | Falta `MONGO_URI` o falló `pip install` | Revisa el log en Render; debería instalar gunicorn sin problema |
 | Cambiaste el `.env` y nada cambia | Render no lee tu `.env` | Las variables se cambian **en Render**, no en tu archivo local |
 | El panel lista 0 productos | Atlas está vacío | Entra con tu llave y pulsa *Cargar catálogo inicial* |
+| "Ese archivo no es una imagen" al subir una foto | Formato raro o archivo corrupto | Usa una foto JPG/PNG/WEBP/HEIC de la galería. Si es HEIC, revisa que Render tenga `pillow-heif` instalado (está en `requirements.txt`: sube el código otra vez) |
+| "La foto supera el límite de 12 MB" | Foto enorme | Baja el zoom, o sube `MAX_UPLOAD_MB` en Render |
+| La foto se ve pequeña o borrosa | `ANCHO_MAXIMO` muy bajo | Súbelo en Render (por ejemplo `2000`) |
+| Una foto que subí antes ya no se ve | La borraste | Vuelve a subirla; al borrar se elimina de verdad |
+| "Esta foto la usan N productos" | No se puede borrar una foto en uso | Cambia primero la foto de esos productos |
 
 ---
 

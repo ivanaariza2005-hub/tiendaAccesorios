@@ -18,6 +18,7 @@
   var materialNombre  = DATOS.materialNombre;
   var waLink          = DATOS.waLink;
   var waProducto      = DATOS.waProducto;
+  var imagenSrc       = DATOS.imagenSrc;
 
   // Lista reactiva: se llena con los datos de MongoDB
   var PRODUCTOS = [];
@@ -73,7 +74,7 @@
                 'aria-label="Ver detalle de ' + esc(p.nombre) + '">' +
           '<div class="card__media">' +
             (p.etiqueta ? '<span class="card__tag">' + esc(p.etiqueta) + '</span>' : '') +
-            '<img src="' + esc(p.imagen) + '" alt="' + esc(p.nombre) + ' — ' +
+            '<img src="' + esc(imagenSrc(p.imagen)) + '" alt="' + esc(p.nombre) + ' — ' +
                  esc(materialNombre(p.material)) + '" loading="lazy" decoding="async" ' +
                  'onerror="this.closest(\'.card\').hidden = true" width="776" height="1024">' +
           '</div>' +
@@ -184,7 +185,7 @@
 
     ultimoFoco = disparador || document.activeElement;
 
-    $('#modal-img', modal).src = p.imagen;
+    $('#modal-img', modal).src = imagenSrc(p.imagen);
     $('#modal-img', modal).alt = p.nombre;
     $('#modal-cat', modal).textContent = categoriaNombre(p.categoria);
     $('#modal-titulo', modal).textContent = p.nombre;

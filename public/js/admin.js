@@ -34,6 +34,7 @@
 
   var estado = {
     productos: [],
+    imagenes: [],                       // fotos subidas (MongoDB GridFS)
     llave: sessionStorage.getItem('manillas_llave') || '',
     mongoOk: !!CONFIG.apiUrl
   };
@@ -125,7 +126,7 @@
     lista.innerHTML = estado.productos.map(function (p) {
       return '' +
         '<article class="admin-item" data-id="' + esc(p.id) + '">' +
-          '<img class="admin-item__img" src="' + esc(p.imagen) + '" alt="" loading="lazy" ' +
+          '<img class="admin-item__img" src="' + esc(DATOS.imagenSrc(p.imagen)) + '" alt="" loading="lazy" ' +
                'onerror="this.style.visibility=\'hidden\'">' +
           '<div class="admin-item__info">' +
             '<div class="admin-item__nombre">' +
@@ -162,10 +163,124 @@
       .map(function (k) { return '<option value="' + esc(k) + '">' + esc(MATERIALES[k]) + '</option>'; })
       .join('');
 
+    pintarSelectImagenes();
+  }
+
+  /* El desplegable ofrece: las fotos del catálogo base + las ya subidas */
+  function pintarSelectImagenes() {
     var im = $('f-imagen-sel');
-    im.innerHTML = '<option value="">Usar ruta personalizada…</option>' +
-      IMAGENES_CONOCIDAS.map(function (s) { return '<option value="' + esc(s) + '">' + esc(s) + '</option>'; })
-        .join('');
+    var actual = im.value;
+    var opciones = ['<option value="">Usar ruta personalizada…</option>'];
+
+    opciones.push('<optgroup label="Fotos del catálogo">' +
+      IMAGENES_CONOCIDAS.map(function (s) {
+        return '<option value="' + esc(s) + '">' + esc(s) + '</option>';
+      }).join('') + '</optgroup>');
+
+    if (estado.imagenes.length) {
+      opciones.push('<optgroup label="Fotos subidas (' + estado.imagenes.length + ')">' +
+        estado.imagenes.map(function (i) {
+          return '<option value="' + esc(i.url) + '">' + esc(i.nombre || i.id) + '</option>';
+        }).join('') + '</optgroup>');
+    }
+
+    im.innerHTML = opciones.join('');
+    // Conserva la seleccion si sigue existiendo
+    im.value = actual;
+  }
+
+  /* ---------------- Fotos: subida y galería ---------------- */
+
+  function fotoEstado(texto, tipo) {
+    var el = $('foto-estado');
+    el.textContent = texto || '';
+    el.className = 'foto-subida__estado' + (tipo ? ' foto-subida__estado--' + tipo : '');
+  }
+
+  function mostrarFoto(url) {
+    if (url) {
+      $('foto-preview').src = url;
+      $('foto-vista').hidden = false;
+    } else {
+      $('foto-preview').removeAttribute('src');
+      $('foto-vista').hidden = true;
+    }
+  }
+
+  function subirFoto(archivo) {
+    if (!archivo) return;
+
+    // Vista previa inmediata mientras sube (object URL local)
+    var previa = URL.createObjectURL(archivo);
+    mostrarFoto(previa);
+
+    var mb = (archivo.size / 1048576).toFixed(1);
+    $('foto-progreso').hidden = false;
+    $('foto-progreso').value = 0;
+    fotoEstado('Subiendo ' + archivo.name + ' (' + mb + ' MB)…');
+    $('btn-camara').disabled = true;
+    $('btn-galeria').disabled = true;
+
+    DATOS.mongoSubirImagen(archivo, function (pct) {
+      $('foto-progreso').value = pct;
+      if (pct < 100) fotoEstado('Subiendo foto… ' + pct + '%');
+    })
+      .then(function (r) {
+        URL.revokeObjectURL(previa);
+        $('foto-progreso').hidden = true;
+        $('btn-camara').disabled = false;
+        $('btn-galeria').disabled = false;
+
+        // La URL que devuelve el servidor es la que se guarda en el producto
+        $('f-imagen').value = r.url;
+        $('f-imagen-sel').value = '';
+        mostrarFoto(r.url);
+        fotoEstado('✓ ' + r.mensaje, 'ok');
+
+        estado.imagenes.unshift({
+          id: r.id, url: r.url, nombre: r.nombre, kb: r.peso_kb, subida: 'ahora'
+        });
+        pintarGaleria();
+        pintarSelectImagenes();
+      })
+      .catch(function (err) {
+        URL.revokeObjectURL(previa);
+        $('foto-progreso').hidden = true;
+        $('btn-camara').disabled = false;
+        $('btn-galeria').disabled = false;
+        // Si la subida fallo, la foto anterior se queda puesta
+        mostrarFoto($('f-imagen').value);
+        fotoEstado('✕ No se pudo subir: ' + err.message, 'error');
+      });
+  }
+
+  function pintarGaleria() {
+    var n = estado.imagenes.length;
+    $('foto-galeria-num').textContent = n;
+    $('foto-galeria-wrap').hidden = n === 0;
+    if (n === 0) return;
+
+    $('foto-galeria').innerHTML = estado.imagenes.map(function (i) {
+      return '' +
+        '<button type="button" class="foto-galeria__item" data-url="' + esc(i.url) + '" title="' + esc(i.nombre || '') + '">' +
+          '<img src="' + esc(i.url) + '" alt="" loading="lazy"' +
+               ' onerror="this.parentNode.classList.add(\'foto-galeria__item--roto\')">' +
+          '<span class="foto-galeria__pie">' + esc(i.nombre || 'foto') + '</span>' +
+        '</button>';
+    }).join('');
+  }
+
+  function cargarGaleria() {
+    return DATOS.mongoListarImagenes()
+      .then(function (lista) {
+        estado.imagenes = lista;
+        pintarGaleria();
+        pintarSelectImagenes();
+      })
+      .catch(function () {
+        // La galeria es un extra: si falla, el formulario sigue funcionando
+        estado.imagenes = [];
+      });
   }
 
   var editando = null;
@@ -182,8 +297,13 @@
     $('f-material').value = p ? p.material : 'oro-laminado';
     $('f-etiqueta').value = p ? (p.etiqueta || '') : '';
     $('f-imagen').value = p ? p.imagen : '';
-    $('f-imagen-sel').value = p && IMAGENES_CONOCIDAS.indexOf(p.imagen) !== -1 ? p.imagen : '';
+    $('f-imagen-sel').value = (p && IMAGENES_CONOCIDAS.indexOf(p.imagen) !== -1) ? p.imagen : '';
     $('f-descripcion').value = p ? (p.descripcion || '') : '';
+
+    // Vista previa de la foto que ya tiene el producto
+    mostrarFoto(p ? DATOS.imagenSrc(p.imagen) : '');
+    $('foto-progreso').hidden = true;
+    fotoEstado('');
 
     $('form-wrap').hidden = false;
     $('btn-nuevo').hidden = true;
@@ -195,6 +315,9 @@
     editando = null;
     $('form-wrap').hidden = true;
     $('btn-nuevo').hidden = false;
+    mostrarFoto('');
+    fotoEstado('');
+    $('foto-progreso').hidden = true;
   }
 
   function leerForm() {
@@ -215,7 +338,7 @@
     if (!p.nombre) return 'El nombre es obligatorio.';
     if (!p.categoria) return 'Elige una categoría.';
     if (!p.material)  return 'Elige un material.';
-    if (!p.imagen)    return 'Escribe la imagen (ruta del sitio o URL).';
+    if (!p.imagen)    return 'Sube una foto o escribe la imagen (ruta del sitio o URL).';
     if (!esEdicion && estado.productos.some(function (x) { return x.id === p.id; })) {
       return 'Ya existe un producto con esa referencia.';
     }
@@ -289,6 +412,7 @@
   function initPanel() {
     estadoMongo();
     llenarSelects();
+    cargarGaleria();
 
     DATOS.mongoLeerProductos()
       .then(function (lista) {
@@ -320,7 +444,40 @@
     $('btn-cancelar').addEventListener('click', cerrarForm);
 
     $('f-imagen-sel').addEventListener('change', function () {
-      if (this.value) $('f-imagen').value = this.value;
+      if (this.value) {
+        $('f-imagen').value = this.value;
+        mostrarFoto(DATOS.imagenSrc(this.value));
+        fotoEstado('');
+      }
+    });
+
+    // --- Fotos desde el telefono ---
+    $('btn-camara').addEventListener('click', function () { $('f-foto-camara').click(); });
+    $('btn-galeria').addEventListener('click', function () { $('f-foto-galeria').click(); });
+
+    ['f-foto-camara', 'f-foto-galeria'].forEach(function (idCampo) {
+      $(idCampo).addEventListener('change', function () {
+        var archivo = this.files && this.files[0];
+        // Se limpia el campo para que volver a elegir la MISMA foto
+        // vuelva a disparar el evento change
+        this.value = '';
+        subirFoto(archivo);
+      });
+    });
+
+    $('btn-quitar-foto').addEventListener('click', function () {
+      mostrarFoto('');
+      fotoEstado('Foto quitada. Sube otra o escribe una ruta.');
+    });
+
+    // Al pulsar una foto de la galería, se usa como imagen del producto
+    $('foto-galeria').addEventListener('click', function (e) {
+      var item = e.target.closest('[data-url]');
+      if (!item) return;
+      $('f-imagen').value = item.dataset.url;
+      $('f-imagen-sel').value = '';
+      mostrarFoto(item.dataset.url);
+      fotoEstado('✓ Foto elegida de la galería', 'ok');
     });
 
     $('form-producto').addEventListener('submit', function (e) {

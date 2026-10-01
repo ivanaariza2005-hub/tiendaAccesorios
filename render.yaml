@@ -32,3 +32,14 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+
+      # --- Fotos (opcionales: son los valores por defecto) ---
+      # Peso maximo de una foto subida desde el movil, en MB
+      - key: MAX_UPLOAD_MB
+        value: "12"
+      # La foto se reduce a este ancho para que la pagina cargue rapido
+      - key: ANCHO_MAXIMO
+        value: "1400"
+      # Calidad del JPEG al guardar (85 = muy buena, 70 = mas ligera)
+      - key: CALIDAD_JPEG
+        value: "85"

@@ -89,9 +89,10 @@ window.MANILLAS_CO = (function () {
     var metodo = (opts.method || 'GET').toUpperCase();
 
     var headers = { 'Content-Type': 'application/json' };
-    // El servidor exige la llave en cualquier escritura (POST/PUT/DELETE).
-    // GET es publico: el catalogo lo necesitan los clientes.
-    if (metodo !== 'GET') {
+    // El servidor exige la llave en cualquier escritura (POST/PUT/DELETE),
+    // y tambien en algunos GET privados (como listar las fotos).
+    // El resto de GET son publicos: el catalogo los necesitan los clientes.
+    if (metodo !== 'GET' || endpoint.indexOf('/imagenes') === 0) {
       headers['X-Admin-Key'] = CONFIG.llaveAdmin;
     }
 
@@ -153,6 +154,92 @@ window.MANILLAS_CO = (function () {
     return apiFetch('/ping', { method: 'GET' });
   }
 
+  /* ---------------- 4b. Fotos (MongoDB GridFS) ----------------
+     Las fotos NO van al disco del servidor (se borra en cada
+     actualizacion de Render): se guardan dentro de MongoDB y el
+     servidor las entrega en /imagenes/<id>.                         */
+
+  /** Sube una foto del telefono. onProgreso recibe 0..100. */
+  function mongoSubirImagen(archivo, onProgreso) {
+    if (!CONFIG.apiUrl) {
+      return Promise.reject(new Error('URL de backend no configurada'));
+    }
+    if (!archivo) {
+      return Promise.reject(new Error('No se eligio ninguna foto'));
+    }
+
+    var datos = new FormData();
+    datos.append('archivo', archivo, archivo.name || 'foto.jpg');
+
+    // OJO: aquí NO se pone Content-Type. El navegador tiene que escribir
+    // el "boundary" del multipart; si lo forzamos a application/json
+    // el servidor recibe un archivo corrupto.
+    var xhr = new XMLHttpRequest();
+    var url = CONFIG.apiUrl.replace(/\/$/, '') + '/imagenes';
+
+    return new Promise(function (resolve, reject) {
+      xhr.open('POST', url, true);
+      xhr.setRequestHeader('X-Admin-Key', CONFIG.llaveAdmin);
+
+      if (xhr.upload && typeof onProgreso === 'function') {
+        xhr.upload.onprogress = function (e) {
+          if (e.lengthComputable) onProgreso(Math.round(e.loaded / e.total * 100));
+        };
+      }
+
+      xhr.onload = function () {
+        var datosResp;
+        try { datosResp = JSON.parse(xhr.responseText); }
+        catch (e) { return reject(new Error('Respuesta invalida del servidor')); }
+        if (xhr.status >= 200 && xhr.status < 300 && datosResp.ok !== false) {
+          resolve(datosResp);
+        } else {
+          reject(new Error(datosResp.error || ('HTTP ' + xhr.status)));
+        }
+      };
+
+      xhr.onerror   = function () { reject(new Error('Se perdio la conexion al subir la foto')); };
+      xhr.ontimeout = function () { reject(new Error('La subida tardo demasiado')); };
+      xhr.timeout   = 120000;
+      xhr.send(datos);
+    });
+  }
+
+  /** Lista las fotos ya subidas, para elegirla al editar un producto */
+  function mongoListarImagenes() {
+    return apiFetch('/imagenes', { method: 'GET' })
+      .then(function (res) {
+        return Array.isArray(res.imagenes) ? res.imagenes : [];
+      });
+  }
+
+  /** Borra una foto de la base de datos */
+  function mongoBorrarImagen(id) {
+    return apiFetch('/imagenes/' + encodeURIComponent(id), { method: 'DELETE' });
+  }
+
+  /**
+   * Convierte la imagen de un producto en una URL que el navegador
+   * pueda cargar. Las fotos subidas llegan como /imagenes/<id>
+   * (guardadas en MongoDB, que NO es el mismo sitio que la web
+   * publicada en Netlify), así que hay que anteponerle el servidor.
+   */
+  function imagenSrc(valor) {
+    if (!valor) return '';
+    var v = String(valor);
+    if (/^https?:\/\//i.test(v)) return v;
+
+    if (v.indexOf('/imagenes/') === 0 && CONFIG.apiUrl) {
+      return CONFIG.apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '') + v;
+    }
+
+    if (v.indexOf('imagenes/') === 0 && CONFIG.apiUrl) {
+      return CONFIG.apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '') + '/' + v;
+    }
+
+    return v;   // rutas locales del sitio: img/foto.jpeg
+  }
+
   /* ---------------- 5. Utilidades compartidas -------------------- */
 
   function categoriaNombre(id) {
@@ -186,6 +273,11 @@ window.MANILLAS_CO = (function () {
     mongoEliminar:      mongoEliminar,
     mongoSembrar:       mongoSembrar,
     mongoPing:          mongoPing,
+    // Fotos
+    mongoSubirImagen:   mongoSubirImagen,
+    mongoListarImagenes: mongoListarImagenes,
+    mongoBorrarImagen:  mongoBorrarImagen,
+    imagenSrc:          imagenSrc,
     // Utilidades
     categoriaNombre:    categoriaNombre,
     materialNombre:     materialNombre,
