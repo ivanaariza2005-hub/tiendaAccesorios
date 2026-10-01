@@ -654,6 +654,12 @@ def ver_imagen(image_id):
 # se quedan fuera, asi nadie puede descargarlos por HTTP.
 CARPETAS_PUBLICAS = ("css", "js", "img")
 
+# Archivos sueltos que hacen falta para instalar la app desde el navegador.
+ARCHIVOS_APP = {
+    "manifest.json": "application/manifest+json",
+    "sw.js":        "text/javascript",
+}
+
 
 @app.route("/")
 def index():
@@ -670,6 +676,15 @@ def admin():
 def estaticos(carpeta, archivo):
     """Sirve unicamente archivos de dentro de public/css, public/js o public/img."""
     return send_from_directory(os.path.join(PUBLIC_DIR, carpeta), archivo)
+
+
+@app.route("/<any(manifest.json,sw.js):archivo>")
+def archivos_app(archivo):
+    """Sirve manifest.json y sw.js, que necesita el navegador para instalar la app."""
+    respuesta = send_from_directory(PUBLIC_DIR, archivo)
+    # Sin esto el navegador guarda el service worker viejo y la app no se actualiza
+    respuesta.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return respuesta
 
 
 @app.errorhandler(404)

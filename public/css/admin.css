@@ -210,6 +210,41 @@
   gap: 12px;
 }
 
+/* ---------- Instalar la app desde el navegador ---------- */
+.instalar-barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+}
+.instalar-barra__texto {
+  flex: 1 1 260px;
+  font-size: .9rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.instalar-barra__texto strong {
+  display: block;
+  color: var(--text);
+  font-size: .98rem;
+  margin-bottom: 2px;
+}
+.instalar-barra__pasos {
+  display: block;
+  margin-top: 4px;
+  font-size: .84rem;
+}
+.instalar-barra__acciones {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 /* ---------- Subir fotos desde el teléfono ---------- */
 .foto-subida { margin-bottom: 12px; }
 

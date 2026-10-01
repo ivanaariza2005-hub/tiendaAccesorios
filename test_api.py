@@ -159,9 +159,42 @@ for ruta in ["/.env", "/server.py", "/requirements.txt", "/GUIA-MONGODB.md",
 
 print("\n=== Archivos publicables SI deben servirse ===")
 for ruta in ["/", "/admin.html", "/css/styles.css", "/js/admin.js",
-             "/js/catalogo-base.js", "/img/manillaRoja.jpeg"]:
+             "/js/catalogo-base.js", "/js/instalar.js", "/sw.js",
+             "/manifest.json", "/img/icono-192.png", "/img/icono-512.png",
+             "/img/icono-maskable-512.png", "/img/apple-touch-icon.png",
+             "/img/manillaRoja.jpeg"]:
     r = c.get(ruta)
     check("%s servido -> 200" % ruta, r.status_code == 200, r.status_code)
+
+print("\n=== La app se puede instalar ===")
+r = c.get("/manifest.json")
+manifiesto = r.get_json()
+check("manifest.json es JSON valido", isinstance(manifiesto, dict), r.data[:80])
+check("se instala a pantalla completa", manifiesto.get("display") == "standalone",
+      manifiesto.get("display"))
+check("arranca en el panel", "admin.html" in manifiesto.get("start_url", ""),
+      manifiesto.get("start_url"))
+check("declara iconos de 192 y 512",
+      {"192x192", "512x512"} <= {i.get("sizes") for i in manifiesto.get("icons", [])},
+      [i.get("sizes") for i in manifiesto.get("icons", [])])
+
+# Los iconos que promete tienen que existir de verdad
+import os
+RAIZ = os.path.dirname(os.path.abspath(__file__))
+faltan = [i["src"] for i in manifiesto.get("icons", [])
+          if not os.path.exists(os.path.join(RAIZ, "public", i["src"]))]
+check("los iconos del manifest existen en disco", not faltan, faltan)
+
+r = c.get("/sw.js")
+check("sw.js servido", r.status_code == 200, r.status_code)
+check("sw.js es JavaScript", "javascript" in r.headers.get("Content-Type", ""),
+      r.headers.get("Content-Type"))
+check("sw.js sin cache (para que se actualice solo)",
+      "no-cache" in r.headers.get("Cache-Control", ""), r.headers.get("Cache-Control"))
+check("sw.js no guarda el catalogo en la copia",
+      "indexOf('/api/')" in r.text, "si guardara /api/, verias productos viejos")
+check("sw.js no guarda las fotos",
+      "indexOf('/imagenes/')" in r.text, "si guardara /imagenes/, verias fotos viejas")
 
 print("\n%s\n  %d correctas, %d fallidas\n%s" % ("=" * 46, ok, fallidas, "=" * 46))
 sys.exit(1 if fallidas else 0)

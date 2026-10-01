@@ -173,5 +173,83 @@ check("la tienda carga catalogo-base.js", "js/catalogo-base.js" in index_html)
 check("la tienda carga script.js", "js/script.js" in index_html)
 check("la tienda no carga el panel", "admin.js" not in index_html)
 
+print("\n=== Instalar como app desde el navegador ===")
+sw_js = leer("sw.js")
+instalar_js = leer("js/instalar.js")
+import json as _json
+
+# manifest.json tiene que ser JSON valido y estar bien formado
+manifiesto = None
+try:
+    manifiesto = _json.loads(leer("manifest.json"))
+    check("manifest.json es JSON valido", True)
+except Exception as e:
+    check("manifest.json es JSON valido", False, str(e))
+
+if manifiesto:
+    for campo in ["name", "short_name", "start_url", "scope",
+                  "display", "background_color", "theme_color", "icons"]:
+        check("manifest tiene '%s'" % campo, campo in manifiesto, manifiesto)
+
+    check("se abre a pantalla completa (standalone)",
+          manifiesto.get("display") == "standalone", manifiesto.get("display"))
+    check("arranca en el panel", "admin.html" in manifiesto.get("start_url", ""),
+          manifiesto.get("start_url"))
+
+    tamanos = {i.get("sizes") for i in manifiesto.get("icons", [])}
+    check("hay icono de 192 px", "192x192" in tamanos, tamanos)
+    check("hay icono de 512 px", "512x512" in tamanos, tamanos)
+    check("hay icono maskable (Android lo recorta)",
+          any(i.get("purpose") == "maskable" for i in manifiesto.get("icons", [])),
+          [i.get("purpose") for i in manifiesto.get("icons", [])])
+
+    # Los iconos que promete el manifest tienen que existir de verdad
+    faltan = [i["src"] for i in manifiesto.get("icons", [])
+              if not os.path.exists(os.path.join(PUBLIC, i["src"]))]
+    check("todos los iconos del manifest existen", not faltan, "faltan: %s" % faltan)
+
+# Las etiquetas que pide el navegador para instalarla
+for etiqueta, valor in [('rel="manifest"', 'href="manifest.json"'),
+                        ('theme-color', 'content="#b08d3f"'),
+                        ("apple-mobile-web-app-capable", 'content="yes"'),
+                        ('apple-touch-icon', 'apple-touch-icon.png'),
+                        ('name="mobile-web-app-capable"', 'content="yes"')]:
+    check("admin.html tiene %s" % etiqueta, valor in admin_html)
+
+check("admin.html carga instalar.js", "js/instalar.js" in admin_html)
+
+print("\n=== Service worker ===")
+check("sw.js registra los archivos del panel",
+      "admin.html" in sw_js and "instalar.js" in sw_js and "manifest.json" in sw_js)
+check("sw.js NO guarda el catalogo (siempre del servidor)",
+      "indexOf('/api/')" in sw_js, "si guardara /api/, verias productos viejos")
+check("sw.js NO guarda las fotos",
+      "indexOf('/imagenes/')" in sw_js, "si guardara /imagenes/, verias fotos viejas")
+check("sw.js borra las copias viejas",
+      "caches.delete" in sw_js and "CACHE_VIGENTE" in sw_js,
+      "sin esto la app se queda con el codigo anterior")
+check("sw.js usa una version con numero", "manillas-v" in sw_js,
+      "sube el numero (manillas-v2) cuando cambies el codigo")
+
+print("\n=== Boton de instalar y avisos ===")
+for id in ["instalar-barra", "instalar-aviso", "btn-instalar",
+           "btn-instalar-barra", "btn-cerrar-instalar"]:
+    check("id #%s en el HTML" % id, ('id="%s"' % id) in admin_html)
+    # en instalar.js se buscan por id (#) o por clase
+    check("  #%s se usa en instalar.js" % id,
+          ("'#%s'" % id) in instalar_js or ("$('%s')" % id) in instalar_js,
+          "el boton existe en el HTML pero instalar.js no lo encuentra")
+
+check("instalar.js registra el service worker", "serviceWorker.register" in instalar_js)
+check("instalar.js captura beforeinstallprompt", "beforeinstallprompt" in instalar_js)
+check("instalar.js avisa al quedarse sin internet",
+      "offline" in instalar_js and "addEventListener" in instalar_js)
+check("instalar.js no rompe si no hay soporte",
+      "'serviceWorker' in navigator" in instalar_js,
+      "un fallo aqui dejaria el panel en blanco")
+check("instalar.js no intenta guardar la llave en la copia",
+      "sessionStorage" not in instalar_js and "llaveAdmin" not in instalar_js)
+check("estilo .instalar-barra", ".instalar-barra" in admin_css)
+
 print("\n%s\n  %d correctas, %d fallidas\n%s" % ("=" * 46, ok, fallidas, "=" * 46))
 sys.exit(1 if fallidas else 0)

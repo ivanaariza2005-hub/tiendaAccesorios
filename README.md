@@ -37,11 +37,13 @@ tiendaAccesorios/
 ├── public/               ← lo unico que se sube a Netlify
 │   ├── index.html          catalogo publico
 │   ├── admin.html          panel de administracion
+│   ├── manifest.json       datos de la app (icono, pantalla completa)
+│   ├── sw.js               service worker (abre sin internet)
 │   ├── css/  js/  img/
 ├── server.py             ← backend (va a Render)
-├── test_api.py            43 pruebas de productos
+├── test_api.py            60 pruebas de productos y de la app
 ├── test_imagenes.py       45 pruebas de fotos
-├── test_admin_html.py    104 pruebas del panel y la tienda
+├── test_admin_html.py    146 pruebas del panel y la tienda
 ├── requirements.txt
 ├── render.yaml             config de Render
 ├── netlify.toml            config de Netlify
@@ -60,6 +62,23 @@ Copy-Item .env.example .env      # y rellena MONGO_URI con tu cadena de Atlas
 
 - Tienda: <http://localhost:5000>
 - Panel: <http://localhost:5000/admin.html>
+
+## Instalar el panel como app
+
+El panel se instala desde el navegador, sin tienda de apps: al entrar aparece
+una franja con los pasos. En Android (Chrome) es el menú **⋮ → Instalar
+aplicación**; en iPhone, **compartir → Añadir a pantalla de inicio**. Queda con
+icono propio y se abre a pantalla completa.
+
+`manifest.json` y `sw.js` son lo que hace posible eso. El service worker guarda
+**solo los archivos del panel** (HTML, CSS, JS e iconos) para que abra al
+instante y sin internet; los productos y las fotos **siempre** se piden al
+servidor, así que nunca ves un catálogo viejo.
+
+Al cambiar el código del panel, sube `CACHE_VIGENTE` en `public/sw.js` para que
+los celulares borren la copia anterior.
+
+Detalle por navegador en [PUBLICAR.md](PUBLICAR.md#-instalar-el-panel-como-app-en-el-celular).
 
 ## Pruebas
 

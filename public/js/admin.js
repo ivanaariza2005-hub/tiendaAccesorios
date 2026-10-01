@@ -98,12 +98,7 @@
         var esLocal = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
         el.textContent = '· servidor desconectado';
         $('aviso-api').hidden = false;
-        $('aviso-api').textContent = esLocal
-          ? '⚠️ No responde el servidor local. En tu terminal ejecuta: ' +
-            '.\\.venv\\Scripts\\python.exe server.py   —  Detalle: ' + err.message
-          : '⚠️ No se pudo contactar con el servidor. Si acabas de subirlo a Netlify, ' +
-            'revisa que la URL de Render esté escrita en public/js/catalogo-base.js. ' +
-            'Detalle: ' + err.message;
+        $('aviso-api').textContent = mensajeFallo(err, esLocal);
       });
   }
 
@@ -426,8 +421,32 @@
       .catch(function (err) {
         estado.productos = [];
         pintarLista();
-        avisoMostrar('error', 'No se pudo conectar con el servidor Python / MongoDB: ' + err.message);
+        avisoMostrar('error', mensajeFallo(err, false));
       });
+  }
+
+  /* ---------------- Mensajes de error claros ----------------
+     Un error de red dice cosas como "Failed to fetch" o "Respuesta
+     inválida del servidor", que no significan nada para ti. Aquí se
+     traducen a algo que sí puedas arreglar. */
+
+  function mensajeFallo(err, esLocal) {
+    if (!navigator.onLine) {
+      return '📡 No hay internet. Revisa el Wi-Fi o los datos del celular ' +
+             'y vuelve a intentar. Los cambios NO se pueden guardar sin conexión.';
+    }
+    var detalle = err && err.message ? err.message : 'sin detalle';
+    if (/invalid|vacía|empty|502|503|504|Failed to fetch|NetworkError/i.test(detalle)) {
+      return '📡 No se pudo conectar con el servidor. Revisa tu internet ' +
+             'y abre la app otra vez en unos segundos. Detalle: ' + detalle;
+    }
+    if (esLocal) {
+      return '⚠️ No responde el servidor local. En tu terminal ejecuta: ' +
+             '.\\.venv\\Scripts\\python.exe server.py   —  Detalle: ' + detalle;
+    }
+    return '⚠️ No se pudo contactar con el servidor. Si acabas de subirlo a Netlify, ' +
+           'revisa que la URL de Render esté escrita en public/js/catalogo-base.js. ' +
+           'Detalle: ' + detalle;
   }
 
   /* ---------------- Eventos ---------------- */

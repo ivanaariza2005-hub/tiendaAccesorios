@@ -192,6 +192,57 @@ Detalles que conviene saber:
 
 ---
 
+### 📲 Instalar el panel como app en el celular
+
+Queda como una app de verdad: con su propio icono, se abre a pantalla completa
+(sin la barra del navegador) y la cámara funciona directa.
+
+**Antes de nada:** la app solo se puede instalar desde la dirección que
+termina en `netlify.app` (o `https://`). Chrome en Android **no** instala apps
+desde una dirección con `http://` que no sea `localhost`.
+
+#### En Android (Chrome)
+
+1. Abre la dirección de tu tienda en Netlify + `admin.html`.
+2. Escribe la llave y pulsa **Entrar**.
+3. Te aparece una franja amarilla arriba: **"Instala el panel en tu celular"**.
+   - Si el botón dice **Instalar**, púlsalo y ya está.
+   - Si dice **Ver cómo**, toca el menú **⋮** de arriba a la derecha y luego
+     **Instalar aplicación** (a veces aparece como *Añadir a pantalla de inicio*).
+4. Listo. Busca el icono dorado en tu pantalla de inicio.
+
+#### En iPhone (Safari)
+
+1. Abre la dirección en **Safari** (no desde Chrome: iOS no instala desde Chrome).
+2. Escribe la llave y pulsa **Entrar**.
+3. Toca el botón de **compartir**: el cuadrado azul con una flecha hacia arriba.
+4. Baja hasta **Añadir a pantalla de inicio** y pulsa **Añadir**.
+5. Listo. El icono dorado aparece en tu pantalla de inicio.
+
+#### Qué sí y qué no funciona instalada
+
+| | Instalada |
+|---|---|
+| Se ve a pantalla completa, con icono propio | ✅ |
+| Abre al instante (no espera internet) | ✅ |
+| Ver y escribir productos | ✅ (necesita internet) |
+| Subir fotos con la cámara | ✅ (necesita internet) |
+| Guardar cambios sin internet | ❌ avisa "Estás sin internet" |
+
+**Sin internet** la app **sí abre** (por eso guardamos los archivos del panel
+en el celular), pero **no se pueden guardar** productos ni subir fotos: te
+avisa con un mensaje claro en vez de perder el trabajo.
+
+#### Al actualizar el panel
+
+Los archivos del panel se guardan en el celular. Cuando cambie el código, sube
+el número de versión en `public/sw.js` (`CACHE_VIGENTE`) para que el celular
+borre la copia vieja. Si aun así ves algo raro, en Android:
+**⋮ → ⋮ (Ajustes) → "Borrar datos"** no es lo mismo; mejor **Chrome → ⋮ →
+Información del sitio → Borrar datos**.
+
+---
+
 ## 🔄 Publicar cambios después
 
 | Qué cambiaste | Qué hacer |
@@ -237,6 +288,11 @@ borrando productos), pero si te preocupa:
 | La foto se ve pequeña o borrosa | `ANCHO_MAXIMO` muy bajo | Súbelo en Render (por ejemplo `2000`) |
 | Una foto que subí antes ya no se ve | La borraste | Vuelve a subirla; al borrar se elimina de verdad |
 | "Esta foto la usan N productos" | No se puede borrar una foto en uso | Cambia primero la foto de esos productos |
+| "Instalar" no aparece en el menú | La dirección es `http://` y no `https://` | Chrome solo instala desde `netlify.app` o `https://` |
+| En iPhone no hay ningún botón de instalar | Es normal: Safari no da ese botón | Usa el botón de **compartir** → *Añadir a pantalla de inicio* |
+| La app abre con la página en blanco y sin internet | Copia del panel incompleta | Abre la app **con internet** una vez para que se guarde, y luego prueba sin internet |
+| La app muestra el código viejo | El celular guardó la copia anterior | Sube `CACHE_VIGENTE` en `public/sw.js` (v3 → v4) y vuelve a subir `public/` |
+| "Estás sin internet" pero sí hay internet | El servidor de Render no responde | Espera 30 s (se despertó) y reintenta |
 
 ---
 
